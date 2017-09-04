@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:vlc="http://schemas.android.com/apk/res-auto">
+
+    <item
+        android:id="@+id/ml_menu_filter"
+        android:icon="@drawable/ic_menu_search_normal_w"
+        android:orderInCategory="1"
+        android:title="@string/searchable_hint"
+        vlc:actionViewClass="android.support.v7.widget.SearchView"
+        vlc:showAsAction="always|collapseActionView" />
+    <item
+        android:id="@+id/ml_menu_sortby_name"
+        android:orderInCategory="2"
+        android:title="@string/sortby_name"
+        vlc:showAsAction="never" />
+
+    <item
+        android:id="@+id/ml_menu_sortby_length"
+        android:orderInCategory="2"
+        android:title="@string/sortby_length"
+        android:visible="true"
+        vlc:showAsAction="never" />
+    <item
+        android:id="@+id/ml_menu_sortby_date"
+        android:orderInCategory="2"
+        android:title="@string/sortby_date"
+        android:visible="true"
+        vlc:showAsAction="never" />
+
+</menu>

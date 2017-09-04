@@ -6,6 +6,8 @@ import android.support.v4.app.Fragment;
 import android.support.v4.app.FragmentTransaction;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.view.Menu;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.WindowManager;
 import android.widget.ProgressBar;
@@ -40,14 +42,14 @@ public class MainActivity extends AppCompatActivity {
 
         mMediaLibrary = MediaLibrary.getInstance();
         if (!mMediaLibrary.isWorking() && mMediaLibrary.getMediaItems().isEmpty()) {
-                mMediaLibrary.scanMediaItems();
+            mMediaLibrary.scanMediaItems();
         }
 
         setContentView(R.layout.activity_main);
-        mInfoLayout=findViewById(R.id.info_layout);
-        mInfoProgress= (ProgressBar) findViewById(R.id.info_progress);
-        mInfoText= (TextView) findViewById(R.id.info_text);
-        mFragment=new VideoGridFragment();
+        mInfoLayout = findViewById(R.id.info_layout);
+        mInfoProgress = (ProgressBar) findViewById(R.id.info_progress);
+        mInfoText = (TextView) findViewById(R.id.info_text);
+        mFragment = new VideoGridFragment();
         FragmentTransaction ft = getSupportFragmentManager().beginTransaction();
         ft.replace(R.id.fragment_contain, mFragment);
         ft.commit();
@@ -71,24 +73,41 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    public void sortTitle(View v){
-        int sortBy = VideoListAdapter.SORT_BY_TITLE;
-        sortBy(sortBy);
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        getMenuInflater().inflate(R.menu.activity_option, menu);
+        return super.onCreateOptionsMenu(menu);
     }
 
-    public void sortLength(View v){
-        int sortBy = VideoListAdapter.SORT_BY_LENGTH;
-        sortBy(sortBy);
-    }
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        int sortBy = -1;
+        // Handle item selection
+        switch (item.getItemId()) {
+            case R.id.ml_menu_sortby_name:
+                sortBy = VideoListAdapter.SORT_BY_TITLE;
+                sortBy(sortBy);
 
-    public void sortTime(View v){
-        int sortBy = VideoListAdapter.SORT_BY_DATE;
-        sortBy(sortBy);
-    }
+                return true;
+            case R.id.ml_menu_sortby_length:
+                sortBy = VideoListAdapter.SORT_BY_LENGTH;
+                sortBy(sortBy);
 
+                return true;
+            case R.id.ml_menu_sortby_date:
+                sortBy = VideoListAdapter.SORT_BY_DATE;
+                sortBy(sortBy);
+                return true;
+            case R.id.ml_menu_search:
+//                startActivity(new Intent(Intent.ACTION_SEARCH, null, this, SearchActivity.class));
+                return true;
+            default:
+                return super.onOptionsItemSelected(item);
+        }
+    }
 
     private void sortBy(int sortBy) {
-        if(mFragment!=null)
+        if (mFragment != null)
             mFragment.sortBy(sortBy);
     }
 
@@ -116,7 +135,7 @@ public class MainActivity extends AppCompatActivity {
         @Override
         public void handleMessage(Message msg) {
             MainActivity ma = getOwner();
-            if(ma == null) return;
+            if (ma == null) return;
 
             switch (msg.what) {
                 case ACTIVITY_SHOW_INFOLAYOUT:

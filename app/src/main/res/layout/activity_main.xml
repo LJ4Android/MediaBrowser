@@ -10,29 +10,7 @@
     android:orientation="vertical"
     tools:context="org.videolan.vlc.MainActivity">
 
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:gravity="center">
-        <Button
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:onClick="sortTitle"
-            android:text="@string/sort_title"/>
-        <Button
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginLeft="@dimen/activity_horizontal_margin"
-            android:layout_marginRight="@dimen/activity_horizontal_margin"
-            android:onClick="sortLength"
-            android:text="@string/sort_length"/>
-        <Button
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:onClick="sortTime"
-            android:text="@string/sort_time"/>
-    </LinearLayout>
+
     <FrameLayout
         android:id="@+id/fragment_contain"
         android:layout_width="match_parent"
