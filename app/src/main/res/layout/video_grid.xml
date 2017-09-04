@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <org.videolan.vlc.gui.view.SwipeRefreshLayout
+                android:id="@+id/swipeLayout"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent">
+        <org.videolan.vlc.gui.view.AutoFitRecyclerView
+            android:id="@id/android:list"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:padding="@dimen/default_margin"
+            android:clipToPadding="false"
+            android:scrollbarStyle="outsideInset"
+            android:numColumns="auto_fit"
+            android:fastScrollEnabled="true"
+            android:scrollbars="vertical"
+            android:fadingEdge="none"
+            android:stretchMode="none"
+            android:gravity="center"
+            android:nextFocusUp="@+id/ml_menu_search"
+            android:nextFocusDown="@id/android:list"
+            android:nextFocusLeft="@id/android:list"
+            android:nextFocusRight="@id/android:list" />
+    </org.videolan.vlc.gui.view.SwipeRefreshLayout>
+
+    <LinearLayout
+        android:id="@id/android:empty"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:gravity="center"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/textview_nomedia"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_margin="@dimen/default_margin"
+            android:drawableBottom="@drawable/ic_no_media"
+            android:drawablePadding="@dimen/default_margin"
+            android:gravity="center"
+            android:maxWidth="600dp"
+            android:text="@string/nomedia"
+            android:textSize="20sp"
+            android:visibility="visible" />
+
+        <LinearLayout
+            android:id="@+id/layout_flipper_loading"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:visibility="invisible" >
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:gravity="right"
+                android:text="@string/loading"
+                android:textSize="20sp" />
+
+            <ViewFlipper
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_gravity="left"
+                android:autoStart="true"
+                android:flipInterval="1000" >
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="left"
+                    android:text="@string/empty"
+                    android:textSize="20sp" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="left"
+                    android:text="@string/load_1_period"
+                    android:textSize="20sp" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="left"
+                    android:text="@string/load_2_period"
+                    android:textSize="20sp" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="left"
+                    android:text="@string/load_3_period"
+                    android:textSize="20sp" />
+            </ViewFlipper>
+        </LinearLayout>
+    </LinearLayout>
+
+    <include layout="@layout/shadow_top" />
+</FrameLayout>
