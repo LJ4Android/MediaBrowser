@@ -34,7 +34,7 @@ public class AutoFitRecyclerView extends ContextMenuRecyclerView {
 
     private NpaGridLayoutManager mGridLayoutManager;
     private int mColumnWidth = -1;
-    private int mSpanCount = -1;
+    private int mSpanCount = 1;
 
     public AutoFitRecyclerView(Context context) {
         super(context);

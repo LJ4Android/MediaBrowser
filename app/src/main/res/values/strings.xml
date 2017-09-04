@@ -405,4 +405,7 @@
     <string name="load_2_period" translatable="false">..</string>
     <string name="load_3_period" translatable="false">...</string>
     <string name="empty" translatable="false"></string>
+
+    <!--相关WRITE_EXTERNAL_STORAGE-->
+    <string name="rationale_write_external_storage">This app needs access to your write external storage.</string>
 </resources>

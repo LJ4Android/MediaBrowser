@@ -20,6 +20,7 @@
 
 package org.videolan.vlc.gui.video;
 
+import android.Manifest;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -29,6 +30,7 @@ import android.content.res.Resources;
 import android.os.Bundle;
 import android.os.Handler;
 import android.preference.PreferenceManager;
+import android.support.annotation.NonNull;
 import android.support.v4.app.FragmentActivity;
 import android.support.v4.content.LocalBroadcastManager;
 import android.support.v4.util.ArrayMap;
@@ -40,6 +42,8 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import android.widget.Toast;
+
 import org.videolan.vlc.MainActivity;
 import org.videolan.vlc.R;
 import org.videolan.vlc.VLCApplication;
@@ -59,9 +63,13 @@ import org.videolan.vlc.util.FileUtils;
 import java.util.ArrayList;
 import java.util.List;
 
-public class VideoGridFragment extends MediaBrowserFragment implements ISortable, IVideoBrowser, SwipeRefreshLayout.OnRefreshListener {
+import pub.devrel.easypermissions.EasyPermissions;
+
+public class VideoGridFragment extends MediaBrowserFragment implements ISortable, IVideoBrowser, SwipeRefreshLayout.OnRefreshListener, EasyPermissions.PermissionCallbacks {
 
     public final static String TAG = "VLC/VideoListFragment";
+
+    private static final int WRITE_EXTERNAL_STORAGE = 122;
 
     public final static String KEY_GROUP = "key_group";
 
@@ -74,11 +82,14 @@ public class VideoGridFragment extends MediaBrowserFragment implements ISortable
     private VideoListAdapter mVideoAdapter;
     private Thumbnailer mThumbnailer;
     private VideoGridAnimator mAnimator;
+    private boolean animate;
+    private ArrayMap<String, Long> times;
 
     private MainActivity mMainActivity;
 
     /* All subclasses of Fragment must include a public empty constructor. */
-    public VideoGridFragment() { }
+    public VideoGridFragment() {
+    }
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -95,7 +106,7 @@ public class VideoGridFragment extends MediaBrowserFragment implements ISortable
     }
 
     @Override
-    public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState){
+    public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
 
         View v = inflater.inflate(R.layout.video_grid, container, false);
 
@@ -111,7 +122,7 @@ public class VideoGridFragment extends MediaBrowserFragment implements ISortable
 
         mGridView.addOnScrollListener(mScrollListener);
         mGridView.setAdapter(mVideoAdapter);
-        Log.d(TAG,"onCreateView");
+        Log.d(TAG, "onCreateView");
         return v;
     }
 
@@ -140,14 +151,14 @@ public class VideoGridFragment extends MediaBrowserFragment implements ISortable
         if (mMediaLibrary.isWorking()) {
             MediaUtils.actionScanStart();
         }
-        Log.d(TAG,"onViewCreated");
+        Log.d(TAG, "onViewCreated");
         mAnimator = new VideoGridAnimator(mGridView);
     }
 
     @Override
     public void onPause() {
         super.onPause();
-        Log.d(TAG,"onPause");
+        Log.d(TAG, "onPause");
         mMediaLibrary.setBrowser(null);
         mMediaLibrary.removeUpdateHandler(mHandler);
 
@@ -159,7 +170,7 @@ public class VideoGridFragment extends MediaBrowserFragment implements ISortable
     @Override
     public void onResume() {
         super.onResume();
-        Log.d(TAG,"onResume");
+        Log.d(TAG, "onResume");
         if (getActivity() instanceof MainActivity)
             mMainActivity = (MainActivity) getActivity();
         mMediaLibrary.setBrowser(this);
@@ -167,33 +178,64 @@ public class VideoGridFragment extends MediaBrowserFragment implements ISortable
         final boolean refresh = mVideoAdapter.isEmpty() && !mMediaLibrary.isWorking();
         // We don't animate while medialib is scanning. Because gridview is being populated.
         // That would lead to graphical glitches
-        final boolean animate = mGroup == null && refresh;
-        Log.d(TAG,"onResume_refresh:"+refresh);
+        animate = mGroup == null && refresh;
+        Log.d(TAG, "onResume_refresh:" + refresh);
         if (refresh)
             updateList();
         else {
             mViewNomedia.setVisibility(mVideoAdapter.getItemCount() > 0 ? View.GONE : View.VISIBLE);
         }
         //Get & set times
-        ArrayMap<String, Long> times = MediaDatabase.getInstance().getVideoTimes();
-        mVideoAdapter.setTimes(times);
-        updateViewMode();
-        if (animate)
-            mAnimator.animate();
+        times = MediaDatabase.getInstance().getVideoTimes();
+
+
+        if (EasyPermissions.hasPermissions(getContext(), Manifest.permission.WRITE_EXTERNAL_STORAGE)) {
+            // Have permission, do the thing!
+            Toast.makeText(getActivity(), "HAS_WRITE_EXTERNAL_STORAGE ", Toast.LENGTH_LONG).show();
+
+            mVideoAdapter.setTimes(times);
+            updateViewMode();
+            if (animate)
+                mAnimator.animate();
+        } else {
+            // Request one permission
+            EasyPermissions.requestPermissions(this, getString(R.string.rationale_write_external_storage),
+                    WRITE_EXTERNAL_STORAGE, Manifest.permission.WRITE_EXTERNAL_STORAGE);
+        }
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        EasyPermissions.onRequestPermissionsResult(requestCode, permissions, grantResults, this);
+        Log.e("tlh", "onRequestPermissionsResult:");
+    }
+
+    @Override
+    public void onPermissionsGranted(int requestCode, List<String> perms) {
+        Log.e("tlh", "onPermissionsGranted:" + requestCode + ":" + perms.size());
+        scanMediaItems();
+
+    }
+
+    @Override
+    public void onPermissionsDenied(int requestCode, List<String> perms) {
+
+        Log.e("tlh", "onPermissionsDenied:" + requestCode + ":" + perms.size());
     }
 
     @Override
     public void onSaveInstanceState(Bundle outState) {
         super.onSaveInstanceState(outState);
         outState.putString(KEY_GROUP, mGroup);
-        Log.d(TAG,"onSaveInstanceState");
+        Log.d(TAG, "onSaveInstanceState");
     }
 
     @Override
     public void onDestroyView() {
         LocalBroadcastManager.getInstance(getActivity()).unregisterReceiver(messageReceiverVideoListFragment);
         super.onDestroyView();
-        Log.d(TAG,"onDestroyView");
+        Log.d(TAG, "onDestroyView");
     }
 
     @Override
@@ -202,10 +244,10 @@ public class VideoGridFragment extends MediaBrowserFragment implements ISortable
         if (mThumbnailer != null)
             mThumbnailer.clearJobs();
         mVideoAdapter.clear();
-        Log.d(TAG,"onDestroy");
+        Log.d(TAG, "onDestroy");
     }
 
-    protected String getTitle(){
+    protected String getTitle() {
         if (mGroup == null)
             return getString(R.string.video);
         else
@@ -269,7 +311,7 @@ public class VideoGridFragment extends MediaBrowserFragment implements ISortable
                             String title = item.getTitle().substring(item.getTitle().toLowerCase().startsWith("the") ? 4 : 0);
                             if (mGroup == null || title.toLowerCase().startsWith(mGroup.toLowerCase()))
                                 displayList.add(item);
-                                jobsList.add(item);
+                            jobsList.add(item);
                         }
                     } else {
                         List<MediaGroup> groups = MediaGroup.group(itemList);
@@ -284,7 +326,7 @@ public class VideoGridFragment extends MediaBrowserFragment implements ISortable
                         @Override
                         public void run() {
                             mVideoAdapter.clear();
-                            Log.d(TAG,"updateList "+displayList.size());
+                            Log.d(TAG, "updateList " + displayList.size());
                             mVideoAdapter.addAll(displayList);
                             if (mReadyToDisplay)
                                 display();
@@ -342,7 +384,7 @@ public class VideoGridFragment extends MediaBrowserFragment implements ISortable
         else // Update group item when its first element is updated
             for (int i = 0; i < mVideoAdapter.getItemCount(); ++i) {
                 if (mVideoAdapter.getItem(i) instanceof MediaGroup &&
-                        ((MediaGroup)mVideoAdapter.getItem(i)).getFirstMedia().equals(item)) {
+                        ((MediaGroup) mVideoAdapter.getItem(i)).getFirstMedia().equals(item)) {
                     final int position = i;
                     mHandler.post(new Runnable() {
                         @Override
@@ -378,7 +420,11 @@ public class VideoGridFragment extends MediaBrowserFragment implements ISortable
 
     @Override
     public void onRefresh() {
-        if (getActivity()!=null && !MediaLibrary.getInstance().isWorking())
+        scanMediaItems();
+    }
+
+    private void scanMediaItems() {
+        if (getActivity() != null && !MediaLibrary.getInstance().isWorking())
             MediaLibrary.getInstance().scanMediaItems(true);
     }
 
@@ -396,11 +442,11 @@ public class VideoGridFragment extends MediaBrowserFragment implements ISortable
             });
     }
 
-    public void clear(){
+    public void clear() {
         mVideoAdapter.clear();
     }
 
-    public void deleteMedia(final MediaWrapper media){
+    public void deleteMedia(final MediaWrapper media) {
         VLCApplication.runBackground(new Runnable() {
             @Override
             public void run() {
@@ -410,4 +456,6 @@ public class VideoGridFragment extends MediaBrowserFragment implements ISortable
         });
         mMediaLibrary.getMediaItems().remove(media);
     }
+
+
 }
