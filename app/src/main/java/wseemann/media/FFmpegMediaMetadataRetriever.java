@@ -44,6 +44,7 @@ import java.util.TimeZone;
  */
 public class FFmpegMediaMetadataRetriever
 {
+    
    private final static String TAG = "FFmpegMediaMetadataRetriever";
    
    /**
