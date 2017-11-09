@@ -1,5 +1,6 @@
 package com.lj.media_browser;
 
+import android.opengl.GLSurfaceView;
 import android.os.Bundle;
 import android.support.annotation.Nullable;
 import android.support.v7.app.AppCompatActivity;
