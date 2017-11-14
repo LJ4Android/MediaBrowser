@@ -2,9 +2,17 @@
 .gradle
 /gradle
 /.idea
+/.idea/gradle.xml
+/.idea/modules.xml
 /build.gradle
 /local.properties
 /app/build
+/common/build
+/dlnacontroller/build
+/livestreaming/build
+/openglrendering/build
+/videoeditor/build
+/videoplayer/build
 .DS_Store
 /build
 /captures
