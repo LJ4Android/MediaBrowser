@@ -1,10 +1,6 @@
 *.iml
 .gradle
 /gradle
-/.idea/gradle.xml
-/.idea/modules.xml
-.idea/modules.xml
-.idea/gradle.xml
 /.idea
 /build.gradle
 /local.properties
