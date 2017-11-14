@@ -26,9 +26,13 @@ android {
 }
 
 dependencies {
-    implementation project(':dlnacontroller')
-    implementation project(':livestreaming')
-    implementation project(':openglrendering')
-    implementation project(':videoeditor')
-    implementation project(':videoplayer')
+    if(isModule.toBoolean()){
+        implementation project(':dlnacontroller')
+        implementation project(':livestreaming')
+        implementation project(':openglrendering')
+        implementation project(':videoeditor')
+        implementation project(':videoplayer')
+    }else{
+        implementation project(':common')
+    }
 }
