@@ -1,6 +1,6 @@
-if(isModule.toBoolean()){
+if (isModule.toBoolean()) {
     apply plugin: 'com.android.library'
-}else {
+} else {
     apply plugin: 'com.android.application'
 }
 
@@ -14,12 +14,21 @@ android {
         versionCode VERSION_CODE as int
         versionName VERSION_NAME as String
 
+        externalNativeBuild {
+            cmake {
+                cppFlags "-fexceptions"
+            }
+        }
+        ndk {
+            abiFilters 'armeabi', 'armeabi-v7a'
+        }
+
         testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
 
     }
 
-    sourceSets{
-        main{
+    sourceSets {
+        main {
             if (isModule.toBoolean()) {
                 manifest.srcFile 'src/main/AndroidManifest.xml'
                 //集成开发模式下排除debug文件夹中的所有Java文件
@@ -39,6 +48,18 @@ android {
         }
     }
 
+
+    externalNativeBuild {
+        cmake {
+            path "src/main/cpp/CMakeLists.txt"
+        }
+    }
+
+    sourceSets.main {
+        jniLibs.srcDir 'src/main/jniLibs'
+        jni.srcDirs = [] //disable automatic ndk-build call
+    }
+
 }
 
 dependencies {
@@ -47,4 +68,5 @@ dependencies {
     testApi "junit:junit:${JUNIT_VERSION}"
     androidTestApi "com.android.support.test:runner:${RUNNER_VERSION}"
     androidTestApi "com.android.support.test.espresso:espresso-core:${ESPRESSO_VERSION}"
+
 }
