@@ -4,6 +4,7 @@
 #include <string.h>
 #include <sys/types.h>
 #include <pthread.h>
+#include <malloc.h>
 #include "sinadlna.h"
 #include "sinadlna_jni.h"
 #include "sinadlna_notify.h"
@@ -87,7 +88,7 @@ int jniThrowException(JNIEnv* env, const char* className, const char* msg)
 
 static pthread_mutex_t* SinaDLNA_CreateMutex()
 {
-	pthread_mutex_t* mtx = (pthread_mutex_t*)malloc(sizeof(pthread_mutex_t));
+	pthread_mutex_t* mtx = (pthread_mutex_t*)magithublloc(sizeof(pthread_mutex_t));
 	if(mtx==NULL){
 		return NULL;
 	}
