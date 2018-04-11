@@ -1,0 +1,31 @@
+//
+// Created by wh on 2017/12/10.
+//
+
+#ifndef MEDIABROWSER_MEDIARENDERERLISTENER_H
+#define MEDIABROWSER_MEDIARENDERERLISTENER_H
+
+class MediaRendererListener{
+
+public:
+    enum MEDIA_RENDER_CTL_MSG{
+        MEDIA_RENDER_CTL_MSG_SET_AV_URL =0,
+        MEDIA_RENDER_CTL_MSG_STOP =1,
+        MEDIA_RENDER_CTL_MSG_PLAY =2,
+        MEDIA_RENDER_CTL_MSG_PAUSE =3,
+        MEDIA_RENDER_CTL_MSG_SEEK =4,
+        MEDIA_RENDER_CTL_MSG_SETVOLUME =5,
+        MEDIA_RENDER_CTL_MSG_SETMUTE =6,
+        MEDIA_RENDER_CTL_MSG_PRE =7,
+        MEDIA_RENDER_CTL_MSG_NEXT =8,
+        MEDIA_RENDER_CTL_MSG_SETVOLUMEDB =9,
+        MEDIA_RENDER_CTL_MSG_GETVOLUMEDBRANGE =10,
+        MEDIA_RENDER_CTL_MSG_DURATION =11,
+        MEDIA_RENDER_CTL_MSG_POSITION =12
+    };
+
+    virtual ~MediaRendererListener(){};
+    virtual int OnMRActionRequest(MEDIA_RENDER_CTL_MSG event,const char *value,const char *data) = 0;
+};
+
+#endif //MEDIABROWSER_MEDIARENDERERLISTENER_H

@@ -20,13 +20,14 @@ android {
             }
         }
         ndk {
-            abiFilters 'armeabi', 'armeabi-v7a'
+            abiFilters 'armeabi-v7a'
         }
         testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
     }
 
     sourceSets{
         main{
+            jniLibs.srcDirs = ['jniLibs']
             if (isModule.toBoolean()) {
                 manifest.srcFile 'src/main/AndroidManifest.xml'
                 //集成开发模式下排除debug文件夹中的所有Java文件
@@ -49,11 +50,6 @@ android {
         cmake {
             path "src/main/cpp/CMakeLists.txt"
         }
-    }
-
-    sourceSets.main {
-        jniLibs.srcDir 'src/main/jniLibs'
-        jni.srcDirs = [] //disable automatic ndk-build call
     }
 }
 

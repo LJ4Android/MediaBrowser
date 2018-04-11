@@ -71,6 +71,10 @@ public:
     virtual void OnContainerChanged(PLT_DeviceDataReference& device, 
                                     const char*              item_id, 
                                     const char*              update_id) = 0;
+    /* qiku add */
+    /* listen the rapid transmit file ,linhuaji, 2014.07.11 */
+    virtual void OnRapidTransmitFileNameChange(const char*from, const char *filename)=0;
+    /* qiku end */
 };
 
 /*----------------------------------------------------------------------
@@ -141,7 +145,7 @@ public:
     PLT_DeviceMapFinderByIp(const char* ip) : m_IP(ip) {}
 
     bool operator()(const PLT_DeviceMapEntry* const& entry) const {
-        const PLT_DeviceDataReference& device = entry->GetValue();
+        PLT_DeviceDataReference device = entry->GetValue();
         return (device->GetURLBase().GetHost() == m_IP);
     }
 

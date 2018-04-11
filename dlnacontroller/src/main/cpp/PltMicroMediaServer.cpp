@@ -7,14 +7,13 @@
 #define LOGI(...) \
   ((void)__android_log_print(ANDROID_LOG_INFO, "sinadlna_jni", __VA_ARGS__))
 
-
-void PLT_MicroMediaServer::startMediaServer(const char *path,const char *friendly_name) {
-  LOGI("startMediaServer");
+PLT_MicroMediaServer::PLT_MicroMediaServer(const char *path, const char *friendly_name,
+                                           const char *uuid) {
   PLT_FileMediaServerDelegate* delegate=new PLT_FileMediaServerDelegate("/", path);
   plt_mediaServer=new PLT_MediaServer(
           friendly_name,
           false,
-          "e6572b54-f3c7-2d91-2fb5-b757f2537e21");
+          uuid);
   plt_mediaServer->SetDelegate(delegate);
   PLT_DeviceHostReference device(plt_mediaServer);
   LOGI("new PLT_MediaServer");
@@ -29,11 +28,28 @@ void PLT_MicroMediaServer::startMediaServer(const char *path,const char *friendl
   LOGI("new PLT_UPnP");
   this->uPnP->AddDevice(device);
   LOGI("AddDevice");
-  this->uPnP->Start();
-  LOGI("Start");
 }
 
-void PLT_MicroMediaServer::stopMediaServer() {
-  if(NULL != this->uPnP)
-    this->uPnP->Stop();
+NPT_Result PLT_MicroMediaServer::startMediaServer() {
+  LOGI("startMediaServer");
+  int ret= NPT_FAILURE;
+  if(this->uPnP){
+    ret=this->uPnP->Start();
+  }
+  return ret;
+}
+
+NPT_Result PLT_MicroMediaServer::stopMediaServer() {
+  int ret= NPT_FAILURE;
+  if (this->uPnP){
+    if(this->uPnP->IsRunning()){
+      ret=this->uPnP->Stop();
+    }
+    delete this->uPnP;
+    this->uPnP=NULL;
+  }
+  if(plt_mediaServer){
+    plt_mediaServer=NULL;
+  }
+  return ret;
 }

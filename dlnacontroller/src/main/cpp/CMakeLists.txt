@@ -29,9 +29,9 @@ add_library(platinum-jni SHARED
             PltMicroMediaController.cpp
             PltMicroMediaRenderer.cpp
             PltMicroMediaServer.cpp
-            sinadlna_notify.cpp
-            sinadlna.cpp
-            sinadlna_jni.cpp)
+            MediaRemote_notify.cpp
+            MediaRemote.cpp
+            MediaRemote_jni.cpp)
 
 target_include_directories(platinum-jni PRIVATE
                            include/Platinum

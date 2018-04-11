@@ -51,10 +51,10 @@ NPT_SET_LOCAL_LOGGER("platinum.android.jni")
 /*----------------------------------------------------------------------
 |   PLT_MicroMediaController::PLT_MicroMediaController
 +---------------------------------------------------------------------*/
-PLT_MicroMediaController::PLT_MicroMediaController(PLT_CtrlPointReference& ctrlPoint) :
+PLT_MicroMediaController::PLT_MicroMediaController() :
     //PLT_SyncMediaBrowser(ctrlPoint),
     //PLT_MediaController(ctrlPoint),
-	m_dlna_listener(NULL),
+	m_mr_listener(NULL),
 	m_TrackDuration(-1),
 	m_MediaDuration(-1)
 {
@@ -62,10 +62,15 @@ PLT_MicroMediaController::PLT_MicroMediaController(PLT_CtrlPointReference& ctrlP
     // user is currently browsing. 
     // push the root directory onto the directory stack.
     //m_CurBrowseDirectoryStack.Push("0");
-	plt_mediaController=new PLT_MediaController(ctrlPoint);
+	this->uPnP = new PLT_UPnP();
+	this->ctrlPoint = new PLT_CtrlPoint();
+	plt_mediaController=new PLT_MediaController(this->ctrlPoint);
 	plt_mediaController->SetDelegate(this);
-	plt_syncMediaBrowser=new PLT_SyncMediaBrowser(ctrlPoint);
+	plt_syncMediaBrowser=new PLT_SyncMediaBrowser(this->ctrlPoint);
 	plt_syncMediaBrowser->SetDelegate(this);
+	this->uPnP->AddCtrlPoint(this->ctrlPoint);
+	//根目录
+	m_CurBrowseDirectoryStack.Push("0");
 }
 
 /*----------------------------------------------------------------------
@@ -75,12 +80,44 @@ PLT_MicroMediaController::~PLT_MicroMediaController()
 {
 }
 
+NPT_Result PLT_MicroMediaController::startMediaController() {
+	int ret=NPT_FAILURE;
+	if(this->uPnP){
+		ret = this->uPnP->Start();
+	}
+	if(!this->ctrlPoint.IsNull()){
+        ctrlPoint->Search(
+                NPT_HttpUrl("239.255.255.250", 1900, "*"),
+                "urn:schemas-upnp-org:service:ContentDirectory:1", 2, 10000., NPT_TimeInterval(10.0));
+        this->ctrlPoint->Search(NPT_HttpUrl("239.255.255.250", 1900, "*"), "urn:schemas-upnp-org:device:MediaServer:1", 1, 0.0);
+        this->ctrlPoint->Search(NPT_HttpUrl("239.255.255.250", 1900, "*"), "urn:schemas-upnp-org:device:MediaRenderer:1", 1, 0.0);
+		this->ctrlPoint->Discover(NPT_HttpUrl("255.255.255.255", 1900, "*"), "upnp:rootdevice", 1, 6000. /*6000*/);
+		this->ctrlPoint->Discover(NPT_HttpUrl("239.255.255.250", 1900, "*"), "upnp:rootdevice", 1, 6000. /*6000*/);
+	}
+	return ret;
+}
 
-void 	
-PLT_MicroMediaController::setSinaDLNAListener(SinaDLNAListener* listener)
-{
-	NPT_AutoLock lock(m_dlna_listener_lock);
-	m_dlna_listener = listener;
+NPT_Result PLT_MicroMediaController::stopMediaController() {
+	int ret=NPT_FAILURE;
+	if(this->plt_mediaController){
+		delete this->plt_mediaController;
+		this->plt_mediaController=NULL;
+	}
+	if(this->plt_syncMediaBrowser){
+		delete this->plt_syncMediaBrowser;
+		this->plt_syncMediaBrowser=NULL;
+	}
+	if (this->uPnP){
+		if(this->uPnP->IsRunning()){
+			ret= this->uPnP->Stop();
+		}
+		delete this->uPnP;
+		this->uPnP=NULL;
+	}
+	if(!this->ctrlPoint.IsNull()){
+		this->ctrlPoint.Detach();
+	}
+	return ret;
 }
 
 /*----------------------------------------------------------------------
@@ -89,35 +126,94 @@ PLT_MicroMediaController::setSinaDLNAListener(SinaDLNAListener* listener)
 bool
 PLT_MicroMediaController::OnMSAdded(PLT_DeviceDataReference& device)
 {
-	// Issue special action upon discovering MediaConnect server
-	/*PLT_Service* service;
-	if (NPT_SUCCEEDED(device->FindServiceByType("urn:microsoft.com:service:X_MS_MediaReceiverRegistrar:*", service))) {
-		PLT_ActionReference action;
-		m_CtrlPoint->CreateAction(
-				device,
-				"urn:microsoft.com:service:X_MS_MediaReceiverRegistrar:1",
-				"IsAuthorized",
-				action);
-		if (!action.IsNull()) {
-			action->SetArgumentValue("DeviceID", "");
-			m_CtrlPoint->InvokeAction(action, 0);
-		}
-
-		m_CtrlPoint->CreateAction(
-				device,
-				"urn:microsoft.com:service:X_MS_MediaReceiverRegistrar:1",
-				"IsValidated",
-				action);
-		if (!action.IsNull()) {
-			action->SetArgumentValue("DeviceID", "");
-			m_CtrlPoint->InvokeAction(action, 0);
-		}
-	}*/
 	NPT_String uuid = device->GetUUID();
-	if(m_dlna_listener){
-		m_dlna_listener->OnMREvent(SinaDLNAListener::SINA_DLNA_MR_EVENT_ADDED, (const char*)uuid, (const char*)device->GetFriendlyName() );
+
+	// test if it's a media renderer
+	PLT_Service* service;
+    // Issue special action upon discovering MediaConnect server
+    if (NPT_SUCCEEDED(device->FindServiceByType("urn:microsoft.com:service:X_MS_MediaReceiverRegistrar:*", service))) {
+        PLT_ActionReference action;
+        ctrlPoint->CreateAction(
+                device,
+                "urn:microsoft.com:service:X_MS_MediaReceiverRegistrar:1",
+                "IsAuthorized",
+                action);
+        if (!action.IsNull()) {
+            action->SetArgumentValue("DeviceID", "");
+            ctrlPoint->InvokeAction(action, 0);
+        }
+
+        ctrlPoint->CreateAction(
+                device,
+                "urn:microsoft.com:service:X_MS_MediaReceiverRegistrar:1",
+                "IsValidated",
+                action);
+        if (!action.IsNull()) {
+            action->SetArgumentValue("DeviceID", "");
+            ctrlPoint->InvokeAction(action, 0);
+        }
+    }
+	if (NPT_SUCCEEDED(device->FindServiceByType("urn:schemas-upnp-org:service:ContentDirectory:*", service))) {
+		NPT_AutoLock lock(m_Devices);
+		m_Devices.Put(uuid, device);
+
+		NPT_AutoLock lock2(m_mr_listener_lock);
+		if(m_mr_listener){
+			m_mr_listener->OnDeviceChange(MediaControllerListener::DEVICE_EVENT_ADDED,
+										  (const char*)uuid,
+										  (const char*)device->GetFriendlyName(),(const char*)device->GetType());
+		}
 	}
 	return true;
+}
+
+void PLT_MicroMediaController::OnMSRemoved(PLT_DeviceDataReference & device) {
+	NPT_String uuid = device->GetUUID();
+
+	{
+		NPT_AutoLock lock(m_Devices);
+		m_Devices.Erase(uuid);
+
+		NPT_AutoLock lock2(m_mr_listener_lock);
+		if(m_mr_listener){
+			m_mr_listener->OnDeviceChange(MediaControllerListener::DEVICE_EVENT_REMOVED,
+										  (const char*)uuid,
+										  (const char*)device->GetFriendlyName(),(const char*)device->GetType());
+		}
+	}
+
+	{
+		NPT_AutoLock lock(m_CurMediaServerLock);
+		// if it's the currently selected one, we have to get rid of it
+		if (!m_CurMediaServer.IsNull() && m_CurMediaServer == device) {
+			m_CurMediaServer = NULL;
+		}
+	}
+}
+
+void PLT_MicroMediaController::OnMSStateVariablesChanged(PLT_Service *service,
+                                                         NPT_List<PLT_StateVariable *> *vars) {
+
+}
+
+void PLT_MicroMediaController::OnBrowseResult(NPT_Result res, PLT_DeviceDataReference &device,
+                                              PLT_BrowseInfo *info, void *userdata) {
+    NPT_COMPILER_UNUSED(device);
+
+    if (!userdata) return;
+
+    PLT_BrowseDataReference* data = (PLT_BrowseDataReference*) userdata;
+    (*data)->res = res;
+    if (NPT_SUCCEEDED(res) && info) {
+        (*data)->info = *info;
+    }
+    (*data)->shared_var.SetValue(1);
+    delete data;
+}
+
+void PLT_MicroMediaController::OnSearchResult(NPT_Result res, PLT_DeviceDataReference &device,
+                                              PLT_BrowseInfo *info, void *userdata) {
+
 }
 
 /*----------------------------------------------------------------------
@@ -129,17 +225,17 @@ PLT_MicroMediaController::OnMRAdded(PLT_DeviceDataReference& device)
 	
     NPT_String uuid = device->GetUUID();
 	
-	NPT_LOG_INFO_2("%s into. uuid=%s", __FUNCTION__, (const char*)uuid);
-
     // test if it's a media renderer
     PLT_Service* service;
     if (NPT_SUCCEEDED(device->FindServiceByType("urn:schemas-upnp-org:service:AVTransport:*", service))) {
-        NPT_AutoLock lock(m_MediaRenderers);
-        m_MediaRenderers.Put(uuid, device);
-		
-		NPT_AutoLock lock2(m_dlna_listener_lock);
-		if(m_dlna_listener){
-			m_dlna_listener->OnMREvent(SinaDLNAListener::SINA_DLNA_MR_EVENT_ADDED, (const char*)uuid, (const char*)device->GetFriendlyName() );
+        NPT_AutoLock lock(m_Devices);
+		m_Devices.Put(uuid, device);
+
+		NPT_AutoLock lock2(m_mr_listener_lock);
+		if(m_mr_listener){
+			m_mr_listener->OnDeviceChange(MediaControllerListener::DEVICE_EVENT_ADDED,
+										  (const char*)uuid,
+										  (const char*)device->GetFriendlyName(),(const char*)device->GetType());
 		}
     }
     
@@ -154,24 +250,23 @@ PLT_MicroMediaController::OnMRRemoved(PLT_DeviceDataReference& device)
 {
     NPT_String uuid = device->GetUUID();
 
-	NPT_LOG_INFO_2("%s into. uuid=%s", __FUNCTION__, (const char*)uuid);
-	
     {
-        NPT_AutoLock lock(m_MediaRenderers);
-        m_MediaRenderers.Erase(uuid);
+        NPT_AutoLock lock(m_Devices);
+		m_Devices.Erase(uuid);
 		
-		NPT_AutoLock lock2(m_dlna_listener_lock);
-		if(m_dlna_listener){
-			m_dlna_listener->OnMREvent(SinaDLNAListener::SINA_DLNA_MR_EVENT_REMOVED, (const char*)uuid, (const char*)device->GetFriendlyName());
+		NPT_AutoLock lock2(m_mr_listener_lock);
+		if(m_mr_listener){
+			m_mr_listener->OnDeviceChange(MediaControllerListener::DEVICE_EVENT_REMOVED,
+										  (const char*)uuid,
+										  (const char*)device->GetFriendlyName(),(const char*)device->GetType());
 		}
     }
 
     {
-        NPT_AutoLock lock(m_CurMediaRendererLock);
-
+        NPT_AutoLock lock(m_CurMediaServerLock);
         // if it's the currently selected one, we have to get rid of it
         if (!m_CurMediaRenderer.IsNull() && m_CurMediaRenderer == device) {
-            m_CurMediaRenderer = NULL;
+			m_CurMediaRenderer = NULL;
         }
     }
 }
@@ -187,6 +282,7 @@ PLT_MicroMediaController::OnMRStateVariablesChanged(PLT_Service*                
 	int notify = 0;
 	PLT_DeviceDataReference cur_device;
     GetCurMediaRenderer(cur_device);
+    LOGI("OnMRStateVariablesChanged");
 	if ( !cur_device.IsNull() && cur_device->GetUUID()==service->GetDevice()->GetUUID() ) {
 		notify = 1;
     }
@@ -201,8 +297,47 @@ PLT_MicroMediaController::OnMRStateVariablesChanged(PLT_Service*                
                (const char*)(*var)->GetName(),
                (const char*)(*var)->GetValue());
 		
-		if(notify && m_dlna_listener){
-			m_dlna_listener->OnMRStateChanged( (const char*)(*var)->GetName(), (const char*)(*var)->GetValue() );
+		if(notify && m_mr_listener){
+			NPT_String name = (*var)->GetName();
+			NPT_String value= (*var)->GetValue();
+            LOGI("OnMRStateVariablesChanged name: %s,value: %s",name.GetChars(),value.GetChars());
+			if (name.Compare("TransportState", true) == 0) {
+			    if(value.Compare("STOPPED", true) == 0){
+					m_mr_listener->OnMRStateVariablesChanged(MediaControllerListener::PLAYBACK_STATE_CHANGE_STOP,0);
+				}
+				else if(value.Compare("PLAYING", true) == 0){
+					m_mr_listener->OnMRStateVariablesChanged(MediaControllerListener::PLAYBACK_STATE_CHANGE_PLAY,0);
+				}
+				else if(value.Compare("PAUSED_PLAYBACK", true) == 0){
+					m_mr_listener->OnMRStateVariablesChanged(MediaControllerListener::PLAYBACK_STATE_CHANGE_PAUSE,0);
+				}
+			}else if(name.Compare("Mute",true) == 0){
+				if(value.Compare("0", true) == 0){
+					m_mr_listener->OnMRStateVariablesChanged(MediaControllerListener::PLAYBACK_STATE_CHANGE_MUTE,0);
+				} else if (value.Compare("1", true) == 0){
+					m_mr_listener->OnMRStateVariablesChanged(MediaControllerListener::PLAYBACK_STATE_CHANGE_MUTE,1);
+				}
+			}else if (name.Compare("Volume", true) == 0){
+				int val;
+				value.ToInteger(val);
+				m_mr_listener->OnMRStateVariablesChanged(MediaControllerListener::PLAYBACK_STATE_CHANGE_VOLUME,val);
+			} else if(name.Compare("CurrentMediaDuration", true) == 0){
+				NPT_UInt32 seconds;
+				PLT_Didl::ParseTimeStamp(value, seconds);
+				m_mr_listener->OnMRStateVariablesChanged(MediaControllerListener::PLAYBACK_STATE_CHANGE_DURATION,seconds);
+			}else if(name.Compare("RelativeTimePosition", true) == 0){
+				NPT_UInt32 seconds;
+				PLT_Didl::ParseTimeStamp(value, seconds);
+				m_mr_listener->OnMRStateVariablesChanged(MediaControllerListener::PLAYBACK_STATE_CHANGE_POSITION,seconds);
+            }else if(name.Compare("AVTransportURI", true) == 0){
+                if(!value.IsEmpty())
+                    m_mr_listener->OnMRMediaDataChanged(MediaControllerListener::PLAYBACK_STATE_CHANGE_AV_TRANSPORT_URI,
+                                                        value.GetChars());
+            } else if(name.Compare("AVTransportURIMetadata", true) == 0){
+                if(!value.IsEmpty())
+                    m_mr_listener->OnMRMediaDataChanged(MediaControllerListener::PLAYBACK_STATE_CHANGE_AV_TRANSPORT_URI_METADATA,
+                                                        value.GetChars());
+            }
 		}
         ++var;
     }
@@ -230,9 +365,9 @@ PLT_MicroMediaController::OnGetMediaInfoResult(
 		return;
 	}
 	
-	NPT_AutoLock lock(m_dlna_listener_lock);
+	NPT_AutoLock lock(m_mr_listener_lock);
 	
-	if(m_dlna_listener){
+	if(m_mr_listener){
 		if(info){
 			m_MediaDuration = info->media_duration.ToSeconds()*1000;
 			if(m_MediaDuration==0){
@@ -241,13 +376,13 @@ PLT_MicroMediaController::OnGetMediaInfoResult(
 			if(m_MediaDuration==0 && m_TrackDuration>0){
 				m_MediaDuration = m_TrackDuration;
 				NPT_LOG_INFO_1("%s use PositionInfo TrackDuration instead of MediaDuration.", __FUNCTION__);
-				m_dlna_listener->OnCommandEvent(SinaDLNAListener::SINA_DLNA_CMD_EVENT_DURATION, res, m_MediaDuration, NULL) ;
+				m_mr_listener->OnMRActionResponse(MediaControllerListener::ACTION_RESPONSE_DURATION, res, m_MediaDuration) ;
 			}else{
-				m_dlna_listener->OnCommandEvent(SinaDLNAListener::SINA_DLNA_CMD_EVENT_DURATION, res, info->media_duration.ToSeconds()*1000, NULL) ;
+				m_mr_listener->OnMRActionResponse(MediaControllerListener::ACTION_RESPONSE_DURATION, res, info->media_duration.ToSeconds()*1000) ;
 			}
 		}else{
 			NPT_LOG_INFO_1("%s info NULL, bad result!", __FUNCTION__);
-			m_dlna_listener->OnCommandEvent(SinaDLNAListener::SINA_DLNA_CMD_EVENT_DURATION, res, 0 , NULL) ;
+			m_mr_listener->OnMRActionResponse(MediaControllerListener::ACTION_RESPONSE_DURATION, res, 0 ) ;
 		}
 	}
 }
@@ -272,8 +407,8 @@ PLT_MicroMediaController::OnGetPositionInfoResult(
 		return;
 	}
 	
-	NPT_AutoLock lock(m_dlna_listener_lock);
-	if(m_dlna_listener){
+	NPT_AutoLock lock(m_mr_listener_lock);
+	if(m_mr_listener){
 		if(info){
 			if(m_MediaDuration==0){
 				NPT_LOG_INFO_1("%s MediaInfo return bad MediaDuration.", __FUNCTION__);
@@ -281,13 +416,13 @@ PLT_MicroMediaController::OnGetPositionInfoResult(
 				if(m_TrackDuration>0){
 					m_MediaDuration = m_TrackDuration;
 					NPT_LOG_INFO_1("%s use PositionInfo TrackDuration instead of MediaDuration.", __FUNCTION__);
-					m_dlna_listener->OnCommandEvent(SinaDLNAListener::SINA_DLNA_CMD_EVENT_DURATION, res, m_MediaDuration, NULL) ;
+					m_mr_listener->OnMRActionResponse(MediaControllerListener::ACTION_RESPONSE_DURATION, res, m_MediaDuration) ;
 				}
 			}
-			m_dlna_listener->OnCommandEvent(SinaDLNAListener::SINA_DLNA_CMD_EVENT_POSITION, res, info->rel_time.ToSeconds()*1000, NULL) ;
+			m_mr_listener->OnMRActionResponse(MediaControllerListener::ACTION_RESPONSE_POSITION, res, info->rel_time.ToSeconds()*1000) ;
 		}else{
 			NPT_LOG_INFO_1("%s info NULL, bad result!", __FUNCTION__);
-			m_dlna_listener->OnCommandEvent(SinaDLNAListener::SINA_DLNA_CMD_EVENT_DURATION, res, 0 , NULL) ;
+			m_mr_listener->OnMRActionResponse(MediaControllerListener::ACTION_RESPONSE_DURATION, res, 0 ) ;
 		}
 	}
 }
@@ -311,9 +446,9 @@ PLT_MicroMediaController::OnSetAVTransportURIResult(
 		return;
 	}
 	
-	NPT_AutoLock lock(m_dlna_listener_lock);
-	if(m_dlna_listener){
-		m_dlna_listener->OnCommandEvent(SinaDLNAListener::SINA_DLNA_CMD_EVENT_OPEN, res, 0, NULL) ;
+	NPT_AutoLock lock(m_mr_listener_lock);
+	if(m_mr_listener){
+		m_mr_listener->OnMRActionResponse(MediaControllerListener::ACTION_RESPONSE_OPEN, res, 0) ;
 	}
 }
 
@@ -337,9 +472,9 @@ PLT_MicroMediaController::OnPlayResult(
 		return;
 	}
 	
-	NPT_AutoLock lock(m_dlna_listener_lock);
-	if(m_dlna_listener){
-		m_dlna_listener->OnCommandEvent(SinaDLNAListener::SINA_DLNA_CMD_EVENT_PLAY, res, 0, NULL) ;
+	NPT_AutoLock lock(m_mr_listener_lock);
+	if(m_mr_listener){
+		m_mr_listener->OnMRActionResponse(MediaControllerListener::ACTION_RESPONSE_PLAY, res, 0) ;
 	}
 }
 
@@ -362,9 +497,9 @@ PLT_MicroMediaController::OnPauseResult(
 		return;
 	}
 	
-	NPT_AutoLock lock(m_dlna_listener_lock);
-	if(m_dlna_listener){
-		m_dlna_listener->OnCommandEvent(SinaDLNAListener::SINA_DLNA_CMD_EVENT_PAUSE, res, 0, NULL) ;
+	NPT_AutoLock lock(m_mr_listener_lock);
+	if(m_mr_listener){
+		m_mr_listener->OnMRActionResponse(MediaControllerListener::ACTION_RESPONSE_PAUSE, res, 0) ;
 	}
 }
 
@@ -388,9 +523,9 @@ PLT_MicroMediaController::OnSeekResult(
 		return;
 	}
 	
-	NPT_AutoLock lock(m_dlna_listener_lock);
-	if(m_dlna_listener){
-		m_dlna_listener->OnCommandEvent(SinaDLNAListener::SINA_DLNA_CMD_EVENT_SEEK, res, 0, NULL) ;
+	NPT_AutoLock lock(m_mr_listener_lock);
+	if(m_mr_listener){
+		m_mr_listener->OnMRActionResponse(MediaControllerListener::ACTION_RESPONSE_SEEK, res, 0) ;
 	}	
 }
 
@@ -414,9 +549,9 @@ PLT_MicroMediaController::OnStopResult(
 		return;
 	}
 	
-	NPT_AutoLock lock(m_dlna_listener_lock);
-	if(m_dlna_listener){
-		m_dlna_listener->OnCommandEvent(SinaDLNAListener::SINA_DLNA_CMD_EVENT_STOP, res, 0, NULL) ;
+	NPT_AutoLock lock(m_mr_listener_lock);
+	if(m_mr_listener){
+		m_mr_listener->OnMRActionResponse(MediaControllerListener::ACTION_RESPONSE_STOP, res, 0) ;
 	}	
 }
 	
@@ -440,9 +575,9 @@ PLT_MicroMediaController::OnSetMuteResult(
 		return;
 	}
 	
-	NPT_AutoLock lock(m_dlna_listener_lock);
-	if(m_dlna_listener){
-		m_dlna_listener->OnCommandEvent(SinaDLNAListener::SINA_DLNA_CMD_EVENT_SET_MUTE, res, 0, NULL) ;
+	NPT_AutoLock lock(m_mr_listener_lock);
+	if(m_mr_listener){
+		m_mr_listener->OnMRActionResponse(MediaControllerListener::ACTION_RESPONSE_SET_MUTE, res, 0) ;
 	}
 }
 
@@ -467,9 +602,9 @@ PLT_MicroMediaController::OnGetMuteResult(
 		return;
 	}
 	
-	NPT_AutoLock lock(m_dlna_listener_lock);
-	if(m_dlna_listener){
-		m_dlna_listener->OnCommandEvent(SinaDLNAListener::SINA_DLNA_CMD_EVENT_GET_MUTE, res, mute, NULL) ;
+	NPT_AutoLock lock(m_mr_listener_lock);
+	if(m_mr_listener){
+		m_mr_listener->OnMRActionResponse(MediaControllerListener::ACTION_RESPONSE_GET_MUTE, res, mute) ;
 	}
 }
 
@@ -492,9 +627,9 @@ PLT_MicroMediaController::OnSetVolumeResult(
 		return;
 	}
 	
-	NPT_AutoLock lock(m_dlna_listener_lock);
-	if(m_dlna_listener){
-		m_dlna_listener->OnCommandEvent(SinaDLNAListener::SINA_DLNA_CMD_EVENT_SET_VOLUME, res, 0, NULL) ;
+	NPT_AutoLock lock(m_mr_listener_lock);
+	if(m_mr_listener){
+		m_mr_listener->OnMRActionResponse(MediaControllerListener::ACTION_RESPONSE_SET_VOLUME, res, 0) ;
 	}
 }
 
@@ -518,9 +653,9 @@ void PLT_MicroMediaController::OnGetVolumeResult(
 		return;
 	}
 	
-	NPT_AutoLock lock(m_dlna_listener_lock);
-	if(m_dlna_listener){
-		m_dlna_listener->OnCommandEvent(SinaDLNAListener::SINA_DLNA_CMD_EVENT_GET_VOLUME, res, volume, NULL) ;
+	NPT_AutoLock lock(m_mr_listener_lock);
+	if(m_mr_listener){
+		m_mr_listener->OnMRActionResponse(MediaControllerListener::ACTION_RESPONSE_GET_VOLUME, res, volume) ;
 	}
 }
 		
@@ -539,19 +674,28 @@ PLT_MicroMediaController::GetCurMediaRenderer(PLT_DeviceDataReference& renderer)
     }
 }
 
+void
+PLT_MicroMediaController::GetCurMediaServer(PLT_DeviceDataReference& server)
+{
+	NPT_AutoLock lock(m_CurMediaServerLock);
+
+	if (m_CurMediaServer.IsNull()) {
+		printf("No server selected, select one with setms\n");
+	} else {
+		server = m_CurMediaServer;
+	}
+}
 
 /*----------------------------------------------------------------------
 |   PLT_MicroMediaController::HandleCmd_setmr
 +---------------------------------------------------------------------*/
 void 
-PLT_MicroMediaController::setmr(const char *uuid)
+PLT_MicroMediaController::setDMR(const char *uuid)
 {
-	NPT_LOG_INFO_2("setmr uuid=[%s]",__FUNCTION__,uuid);
-	
 	PLT_DeviceDataReference* result = NULL;
 	{
-		NPT_AutoLock lock(m_MediaRenderers);
-		m_MediaRenderers.Get(uuid, result);
+		NPT_AutoLock lock(m_Devices);
+		m_Devices.Get(uuid, result);
 	}
 	if(result==NULL){
 		NPT_LOG_INFO_2("%s cannot find mr, uuid=[%s]",__FUNCTION__,uuid);
@@ -560,31 +704,53 @@ PLT_MicroMediaController::setmr(const char *uuid)
 	}
 	
     NPT_AutoLock lock(m_CurMediaRendererLock);
-	m_CurMediaRenderer = result?*result:PLT_DeviceDataReference(); // return empty reference if not device was selected
+	m_CurMediaRenderer = result ? *result:PLT_DeviceDataReference(); // return empty reference if not device was selected
 }
 
 /*----------------------------------------------------------------------
 |   PLT_MicroMediaController::HandleCmd_getmr
 +---------------------------------------------------------------------*/
-void
-PLT_MicroMediaController::getmr(char *uuid, int len)
+const char*
+PLT_MicroMediaController::getDMR()
 {
     PLT_DeviceDataReference device;
  
-	if(!uuid || len<=0){
-		return;
-	}
-
     GetCurMediaRenderer(device);
-	
-	memset(uuid,0,len);
-	
+
     if (!device.IsNull()) {
-        //printf("Current media renderer: %s\n", (const char*)device->GetFriendlyName());
-		strncpy(uuid, (const char*)device->GetUUID(),len);
-    } 
+		return device->GetUUID().GetChars();
+    }
+	return NULL;
 }
 
+void PLT_MicroMediaController::setDMS(const char *uuid) {
+	PLT_DeviceDataReference* result = NULL;
+	{
+		NPT_AutoLock lock(m_Devices);
+		m_Devices.Get(uuid, result);
+	}
+	if(result==NULL){
+		NPT_LOG_INFO_2("%s cannot find mr, uuid=[%s]",__FUNCTION__,uuid);
+	}else{
+		NPT_LOG_INFO_3("%s find mr, uuid=[%s] name=[%s]",__FUNCTION__,uuid,(const char*)(*result)->GetFriendlyName());
+	}
+
+	NPT_AutoLock lock(m_CurMediaServerLock);
+	m_CurMediaServer = result?*result:PLT_DeviceDataReference(); // return empty reference if not device was selected
+}
+
+const char*
+PLT_MicroMediaController::getDMS()
+{
+	PLT_DeviceDataReference device;
+
+	GetCurMediaServer(device);
+
+	if (!device.IsNull()) {
+		return device->GetUUID().GetChars();
+	}
+	return NULL;
+}
 
 /*----------------------------------------------------------------------
 |   PLT_MicroMediaController::HandleCmd_open
@@ -773,4 +939,40 @@ PLT_MicroMediaController::getPositionInfo()
 		if(plt_mediaController)
 			plt_mediaController->GetPositionInfo(device, 0, NULL);
     }
+}
+/*PLT_BrowseDataReference& browse_data,
+        PLT_DeviceDataReference& device,
+const char*              object_id,
+        NPT_Int32                index,
+NPT_Int32                count,
+bool                     browse_metadata,
+const char*              filter,
+const char*              sort*/
+NPT_Result PLT_MicroMediaController::DoBrowse(const char *object_id, bool metadata) {
+	NPT_Result res = NPT_FAILURE;
+	PLT_DeviceDataReference device;
+
+	GetCurMediaServer(device);
+	if (!device.IsNull()) {
+		NPT_String cur_object_id;
+		m_CurBrowseDirectoryStack.Peek(cur_object_id);
+		LOGI("DoBrowse object_id=%s, FriendlyName=%s",object_id,device->GetFriendlyName().GetChars());
+		// send off the browse packet and block
+		res = plt_syncMediaBrowser->BrowseSync(device,
+                                               object_id?object_id:(const char*)cur_object_id,
+                                               m_MostRecentBrowseResults,
+                                               metadata);
+		if(m_mr_listener){
+			LOGI("OnMSMediaBrowser %d",res);
+			m_mr_listener->OnMSMediaBrowser(res,m_MostRecentBrowseResults);
+		}
+	}
+	return res;
+}
+
+void PLT_MicroMediaController::PopDirectoryStackToRoot(void){
+	NPT_String val;
+	while (NPT_SUCCEEDED(m_CurBrowseDirectoryStack.Peek(val)) && val.Compare("0")) {
+		m_CurBrowseDirectoryStack.Pop(val);
+	}
 }

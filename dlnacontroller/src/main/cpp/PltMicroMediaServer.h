@@ -11,16 +11,15 @@
 class PLT_MicroMediaServer{
 
 public:
-    PLT_MicroMediaServer(){};
+    PLT_MicroMediaServer(const char *path,const char* friendly_name,const char *uuid);
     ~PLT_MicroMediaServer(){};
 
-    void startMediaServer(const char *path,const char* friendly_name);
-    void stopMediaServer();
+    NPT_Result startMediaServer();
+    NPT_Result stopMediaServer();
 
 private:
     PLT_UPnP* uPnP;
     PLT_MediaServer* plt_mediaServer;
-
 };
 
 #endif //PLATINUMKIT_PLTMICROMEDIASERVER_H
