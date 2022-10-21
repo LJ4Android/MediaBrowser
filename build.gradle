@@ -7,7 +7,7 @@ buildscript {
     }
     dependencies {
         //调用常量需要将单引号改为双引号
-        classpath "com.android.tools.build:gradle:${ANDROID_GRADLE_VERSION}"
+        classpath "com.android.tools.build:gradle:$ANDROID_GRADLE_VERSION"
 
         // NOTE: Do not place your application dependencies here; they belong
         // in the individual module build.gradle files
@@ -26,6 +26,6 @@ allprojects {
     }
 }
 
-task clean(type: Delete) {0
+task clean(type: Delete) {
     delete rootProject.buildDir
 }
