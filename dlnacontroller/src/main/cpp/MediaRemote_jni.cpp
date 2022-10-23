@@ -103,7 +103,7 @@ static MediaRemote* getMediaRemote(JNIEnv* env, jobject thiz)
 {
     if(gMediaRemoteObjectLock)
         LockMutex(gMediaRemoteObjectLock);
-    MediaRemote* p = (MediaRemote*)env->GetIntField(thiz, gMediaRemoteClassFields.mNativeContext);
+    MediaRemote* p = (MediaRemote*)env->GetLongField(thiz, gMediaRemoteClassFields.mNativeContext);
     if(gMediaRemoteObjectLock)
         UnlockMutex(gMediaRemoteObjectLock);
     return p;
@@ -113,7 +113,7 @@ static MediaRemote* setMediaRemote(JNIEnv* env, jobject thiz, MediaRemote* conte
 {
     if(gMediaRemoteObjectLock)
         LockMutex(gMediaRemoteObjectLock);
-    MediaRemote* old = (MediaRemote*)env->GetIntField(thiz, gMediaRemoteClassFields.mNativeContext);
+    MediaRemote* old = (MediaRemote*)env->GetLongField(thiz, gMediaRemoteClassFields.mNativeContext);
     env->SetIntField(thiz, gMediaRemoteClassFields.mNativeContext, (long)context);
     if(gMediaRemoteObjectLock)
         UnlockMutex(gMediaRemoteObjectLock);
@@ -131,7 +131,7 @@ static void _setup(JNIEnv *env,jobject thiz, jobject weak_thiz) {
         return;
     }
 
-    gMediaRemoteClassFields.mNativeContext = env->GetFieldID(clazz, "mNativeContext", "I");
+    gMediaRemoteClassFields.mNativeContext = env->GetFieldID(clazz, "mNativeContext", "J");
     if (gMediaRemoteClassFields.mNativeContext == NULL) {
         return;
     }

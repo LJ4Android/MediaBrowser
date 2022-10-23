@@ -33,7 +33,7 @@ final class MediaRemote {
     private static final int MEDIA_BROWSER_EVENT=0x05;
     private static final int MEDIA_CHANGE_EVENT=0x06;
 
-    private int mNativeContext;
+    private long mNativeContext;
 
     private EventHandler mEventHandler;
 
