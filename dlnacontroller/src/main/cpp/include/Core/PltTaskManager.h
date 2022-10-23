@@ -66,8 +66,8 @@ public:
      will allow. When the value is reached, a thread calling AddTask will block until
      a task has finished.
      */
-	PLT_TaskManager(NPT_Cardinal max_tasks = 0);
-	virtual ~PLT_TaskManager();
+    PLT_TaskManager(NPT_Cardinal max_tasks = 0);
+    virtual ~PLT_TaskManager();
 
     /**
      Start a new new task and associates it with this task manager.
@@ -105,7 +105,6 @@ private:
 private:
     NPT_List<PLT_ThreadTask*>  m_Tasks;
     NPT_Mutex                  m_TasksLock;
-    NPT_Mutex                  m_CallbackLock;
     NPT_Queue<int>*            m_Queue;
     NPT_Cardinal               m_MaxTasks;
     NPT_Cardinal               m_RunningTasks;

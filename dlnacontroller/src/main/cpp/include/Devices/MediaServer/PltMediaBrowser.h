@@ -39,6 +39,10 @@
 #ifndef _PLT_MEDIA_BROWSER_H_
 #define _PLT_MEDIA_BROWSER_H_
 
+#ifndef PLT_DEFAULT_FILTER
+#define PLT_DEFAULT_FILTER "dc:date,upnp:genre,res,res@duration,res@size,upnp:albumArtURI,upnp:originalTrackNumber,upnp:album,upnp:artist,upnp:author,searchable,childCount" // explicitely specify res otherwise WMP won't return a URL!
+#endif
+
 /*----------------------------------------------------------------------
 |   includes
 +---------------------------------------------------------------------*/
@@ -86,7 +90,7 @@ public:
         PLT_BrowseInfo*          /*info*/, 
         void*                    /*userdata*/) {}
 
-	virtual void OnSearchResult(
+    virtual void OnSearchResult(
         NPT_Result               /*res*/, 
         PLT_DeviceDataReference& /*device*/, 
         PLT_BrowseInfo*          /*info*/, 
@@ -112,17 +116,17 @@ public:
                               NPT_UInt32               start_index,
                               NPT_UInt32               count = 30, // DLNA recommendations
                               bool                     browse_metadata = false,
-                              const char*              filter = "dc:date,upnp:genre,res,res@duration,res@size,upnp:albumArtURI,upnp:originalTrackNumber,upnp:album,upnp:artist,upnp:author", // explicitely specify res otherwise WMP won't return a URL!
-                              const char*              sort_criteria = "",
+                              const char*              filter = PLT_DEFAULT_FILTER,
+                              const char*              sort = "",
                               void*                    userdata = NULL);
 
-	virtual NPT_Result Search(PLT_DeviceDataReference& device, 
-		                      const char*              container_id,
-							  const char*              search_criteria,
-				              NPT_UInt32               start_index,
-					          NPT_UInt32               count = 30, // DLNA recommendations
-                              const char*              filter = "dc:date,upnp:genre,res,res@duration,res@size,upnp:albumArtURI,upnp:originalTrackNumber,upnp:album,upnp:artist,upnp:author", // explicitely specify res otherwise WMP won't return a URL!
-						  	  void*                    userdata = NULL);
+    virtual NPT_Result Search(PLT_DeviceDataReference& device,
+                              const char*              container_id,
+                              const char*              search_criteria,
+                              NPT_UInt32               start_index,
+                              NPT_UInt32               count = 30, // DLNA recommendations
+                              const char*              filter = PLT_DEFAULT_FILTER,
+                              void*                    userdata = NULL);
 
     // methods
     virtual const NPT_Lock<PLT_DeviceDataReferenceList>& GetMediaServers() { return m_MediaServers; }
@@ -142,7 +146,7 @@ protected:
                                         PLT_ActionReference&     action, 
                                         void*                    userdata);
 
-	virtual NPT_Result OnSearchResponse(NPT_Result               res, 
+    virtual NPT_Result OnSearchResponse(NPT_Result               res, 
                                         PLT_DeviceDataReference& device, 
                                         PLT_ActionReference&     action, 
                                         void*                    userdata);
