@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.4.1)
 
-set(libs_DIR ${CMAKE_SOURCE_DIR}/../../../Platinum-libs)
+set(libs_DIR ${CMAKE_SOURCE_DIR}/../../../Platinum-libs/${ANDROID_ABI})
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/../jniLibs/${ANDROID_ABI})
 
 add_library(Platinum STATIC IMPORTED)
