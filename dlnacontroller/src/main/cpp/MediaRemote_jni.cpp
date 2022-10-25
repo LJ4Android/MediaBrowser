@@ -114,7 +114,7 @@ static MediaRemote* setMediaRemote(JNIEnv* env, jobject thiz, MediaRemote* conte
     if(gMediaRemoteObjectLock)
         LockMutex(gMediaRemoteObjectLock);
     MediaRemote* old = (MediaRemote*)env->GetLongField(thiz, gMediaRemoteClassFields.mNativeContext);
-    env->SetIntField(thiz, gMediaRemoteClassFields.mNativeContext, (long)context);
+    env->SetLongField(thiz, gMediaRemoteClassFields.mNativeContext, (long)context);
     if(gMediaRemoteObjectLock)
         UnlockMutex(gMediaRemoteObjectLock);
     return old;
